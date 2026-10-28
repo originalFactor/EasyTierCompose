@@ -54,7 +54,7 @@
 | Gradle             | 9.5.0                                             |
 | AGP                | 9.3.1                                             |
 | JDK                | 21（Daemon）/ 11（source/target compat）              |
-| NDK                | 30.0.16138531 / CMake 4.1.2（仅用于编译 `root_tun_jni`） |
+| NDK                | 30.0.16248370 / CMake 4.1.2（仅用于编译 `root_tun_jni`） |
 
 Root TUN 模式需要设备已 root 并授予应用 root 权限。
 

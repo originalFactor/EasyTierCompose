@@ -47,7 +47,7 @@ val hasSigningCredentials: Provider<Boolean> = releaseStoreFile
 android {
     namespace = "cc.ptoe.easytier.compose"
     buildToolsVersion = "37.0.0"
-    ndkVersion = "30.0.16138531"
+    ndkVersion = "30.0.16248370"
     compileSdk {
         version = release(37) {
             minorApiLevel = 0

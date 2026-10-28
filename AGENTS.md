@@ -30,7 +30,7 @@ EasyTierCompose 是一个单 Activity 的 Jetpack Compose Android 应用，封�
 | compileSdk                       | 37                                                                     |
 | minSdk                           | 24                                                                     |
 | targetSdk                        | 36                                                                     |
-| NDK（CMake）                       | 30.0.16138531 / 4.1.2                                                  |
+| NDK（CMake）                       | 30.0.16248370 / 4.1.2                                                  |
 | ABI                              | arm64-v8a, armeabi-v7a, x86\_64                                        |
 
 版本统一在 [gradle/libs.versions.toml](gradle/libs.versions.toml) 中管理。配置缓存已启用（`org.gradle.configuration-cache=true`）。release 构建关闭了 optimization（`enable = false`）。

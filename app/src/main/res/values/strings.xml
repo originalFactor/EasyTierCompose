@@ -119,6 +119,8 @@
     <string name="settings_tun">TUN</string>
     <string name="settings_tun_mode">TUN Mode</string>
     <string name="global_override">Override</string>
+    <string name="global_override_takeover_hint">Swipe right or tap to override</string>
+    <string name="global_override_release_hint">Override active - swipe left or tap to follow profile</string>
     <string name="global_override_active">Override active</string>
     <string name="global_profile_summary">Profile: %1$s</string>
     <string name="global_value_not_set">Not set</string>

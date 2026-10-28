@@ -105,6 +105,8 @@
     <string name="settings_tun">TUN</string>
     <string name="settings_tun_mode">TUN 模式</string>
     <string name="global_override">覆盖</string>
+    <string name="global_override_takeover_hint">右滑或点击以启用覆盖</string>
+    <string name="global_override_release_hint">已启用覆盖 - 左滑或点击以使用配置文件的值</string>
     <string name="global_override_active">已启用覆盖</string>
     <string name="global_profile_summary">配置文件：%1$s</string>
     <string name="global_value_not_set">未设置</string>
