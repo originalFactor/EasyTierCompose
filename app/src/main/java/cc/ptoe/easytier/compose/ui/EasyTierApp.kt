@@ -281,7 +281,11 @@ fun EasyTierApp(
                 AppNavigationRail(destination) { destination = it }
                 VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
-            Box(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp).widthIn(max = 900.dp)) {
+            // Keep the transition container at the full content width. If the
+            // padding/max-width wrapper is outside AnimatedContent, slide offsets are
+            // calculated from the constrained content width and the page appears to
+            // enter from inside the screen instead of its edge.
+            Box(Modifier.fillMaxSize()) {
                 val tabDestination = when (destination) {
                     Destination.Editor -> Destination.Profiles
                     Destination.GlobalSettings -> Destination.Settings
@@ -291,6 +295,7 @@ fun EasyTierApp(
                     listOf(Destination.Dashboard, Destination.Profiles, Destination.Peers, Destination.Settings)
                 }
                 AnimatedContent(
+                    modifier = Modifier.fillMaxSize(),
                     targetState = tabDestination,
                     transitionSpec = {
                         val fromIndex = tabOrder.indexOf(initialState)
@@ -308,31 +313,38 @@ fun EasyTierApp(
                     },
                     label = stringResource(R.string.transition_tab),
                 ) { tab ->
-                    when (tab) {
-                        Destination.Dashboard -> DashboardScreen(
-                            state = state,
-                            connect = viewModel::connect,
-                            disconnect = viewModel::disconnect,
-                            onCreate = { viewModel.beginCreate(); destination = Destination.Editor },
-                        )
-                        Destination.Profiles -> ProfilesScreen(
-                            state = state,
-                            add = { viewModel.beginCreate(); destination = Destination.Editor },
-                            importProfile = { imported -> viewModel.beginEdit(imported); destination = Destination.Editor },
-                            edit = { viewModel.beginEdit(it); destination = Destination.Editor },
-                            select = { viewModel.selectProfile(it.id) },
-                            delete = viewModel::delete,
-                        )
-                        Destination.Peers -> PeersScreen(state = state)
-                        Destination.Settings -> SettingsScreen(
-                            state = state,
-                            onTunMode = viewModel::updateTunMode,
-                            onStartOnBoot = viewModel::updateStartOnBoot,
-                            onOpenGlobalSettings = { destination = Destination.GlobalSettings },
-                            reset = viewModel::resetProfiles,
-                        )
-                        Destination.Editor -> Unit
-                        Destination.GlobalSettings -> Unit
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 20.dp, vertical = 12.dp)
+                            .widthIn(max = 900.dp),
+                    ) {
+                        when (tab) {
+                            Destination.Dashboard -> DashboardScreen(
+                                state = state,
+                                connect = viewModel::connect,
+                                disconnect = viewModel::disconnect,
+                                onCreate = { viewModel.beginCreate(); destination = Destination.Editor },
+                            )
+                            Destination.Profiles -> ProfilesScreen(
+                                state = state,
+                                add = { viewModel.beginCreate(); destination = Destination.Editor },
+                                importProfile = { imported -> viewModel.beginEdit(imported); destination = Destination.Editor },
+                                edit = { viewModel.beginEdit(it); destination = Destination.Editor },
+                                select = { viewModel.selectProfile(it.id) },
+                                delete = viewModel::delete,
+                            )
+                            Destination.Peers -> PeersScreen(state = state)
+                            Destination.Settings -> SettingsScreen(
+                                state = state,
+                                onTunMode = viewModel::updateTunMode,
+                                onStartOnBoot = viewModel::updateStartOnBoot,
+                                onOpenGlobalSettings = { destination = Destination.GlobalSettings },
+                                reset = viewModel::resetProfiles,
+                            )
+                            Destination.Editor -> Unit
+                            Destination.GlobalSettings -> Unit
+                        }
                     }
                 }
 
