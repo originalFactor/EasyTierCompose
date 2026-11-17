@@ -33,7 +33,7 @@ EasyTierCompose 是一个单 Activity 的 Jetpack Compose Android 应用，封�
 | NDK（CMake）                       | 30.0.16248370 / 4.1.2                                                  |
 | ABI                              | arm64-v8a, armeabi-v7a, x86\_64                                        |
 
-版本统一在 [gradle/libs.versions.toml](gradle/libs.versions.toml) 中管理。配置缓存已启用（`org.gradle.configuration-cache=true`）。release 构建关闭了 optimization（`enable = false`）。
+版本统一在 [gradle/libs.versions.toml](gradle/libs.versions.toml) 中管理。配置缓存已启用（`org.gradle.configuration-cache=true`）。release 构建开启 R8 full mode、代码混淆与资源裁剪。
 
 ## 常用命令
 
@@ -343,8 +343,10 @@ VpnService/其他代理的 TUN 劫持；VPN\_SERVICE 侧的 No TUN 仍在 app �
 * **DataStore**：profile 损坏时自动迁移到 `profiles_v1_corrupt` 并清空主键，避免崩溃；
   `GlobalSettingsRepository` 使用独立 store（`easytier_global_settings`）。
 
-* **release 构建**：`optimization.enable = false`，R8 实际未启用优化；keep 规则文件
-  `app/src/main/keepRules/rules.keep` 当前为空模板。
+* **release 构建**：`optimization.enable = true`，开启 R8 full mode、代码混淆与资源裁剪。
+  `app/src/main/keepRules/rules.keep` 保留 JNI 名称与 Root 服务反射入口。
+  Root TUN C++ 在 Release / RelWithDebInfo 下开启 `-O3`、Thin LTO、隐藏符号与链接裁剪。
+  签名、版本号及 ABI 拆包沿用现有发布流程。详见 `docs/RELEASE.md`。
 
 * **自适应布局阈值**：`screenWidthDp >= 840` 切换为双栏 NavigationRail。
 
