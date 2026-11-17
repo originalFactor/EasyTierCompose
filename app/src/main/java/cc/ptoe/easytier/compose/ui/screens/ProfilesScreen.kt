@@ -225,7 +225,7 @@ internal fun ProfilesScreen(
                                     }
                                 }
                                 Text(
-                                    text = stringResource(
+                                    text = if (profile.configServer != null) stringResource(R.string.config_server_title) else stringResource(
                                         R.string.profiles_network_summary,
                                         profile.networkName,
                                         pluralStringResource(R.plurals.peer_count, profile.peers.size, profile.peers.size),
@@ -235,6 +235,7 @@ internal fun ProfilesScreen(
                                 )
                             }
                             IconButton(
+                                enabled = profile.configServer == null,
                                 onClick = {
                                     pendingExport = profile to TomlConfigBuilder.build(profile, state.globalSettings)
                                     createDocument.launch(exportFileName(profile.name))

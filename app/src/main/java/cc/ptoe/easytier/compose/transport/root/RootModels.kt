@@ -14,6 +14,8 @@ data class RootTunSpec(
     // Whether the profile configured a WireGuard VPN portal; tells the root
     // daemon to poll VpnPortalRpc so the app can show portal credentials.
     val wireguardPortal: Boolean = false,
+    val managedProfileJson: String? = null,
+    val machineId: String? = null,
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
         parcel.readString(),
@@ -23,6 +25,8 @@ data class RootTunSpec(
         parcel.readString().orEmpty(),
         parcel.createBooleanArray()?.getOrNull(0) ?: false,
         parcel.createBooleanArray()?.getOrNull(0) ?: false,
+        parcel.readString(),
+        parcel.readString(),
     )
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
@@ -33,6 +37,8 @@ data class RootTunSpec(
         parcel.writeString(devName)
         parcel.writeBooleanArray(booleanArrayOf(magicDns))
         parcel.writeBooleanArray(booleanArrayOf(wireguardPortal))
+        parcel.writeString(managedProfileJson)
+        parcel.writeString(machineId)
     }
 
     override fun describeContents() = 0
@@ -54,6 +60,8 @@ data class RootRuntimeStatus(
     val natType: String? = null,
     // JSON-encoded WireGuardPortalInfo, fetched by the root daemon via VpnPortalRpc.
     val wireguardPortalJson: String? = null,
+    val configServerConnected: Boolean? = null,
+    val managedNetworkName: String? = null,
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
         parcel.readString().orEmpty(),
@@ -64,6 +72,8 @@ data class RootRuntimeStatus(
         parcel.readString(),
         parcel.readString(),
         parcel.readString(),
+        parcel.readString(),
+        parcel.readInt().let { if (it < 0) null else it == 1 },
         parcel.readString(),
     )
 
@@ -77,6 +87,8 @@ data class RootRuntimeStatus(
         parcel.writeString(hostname)
         parcel.writeString(natType)
         parcel.writeString(wireguardPortalJson)
+        parcel.writeInt(configServerConnected?.let { if (it) 1 else 0 } ?: -1)
+        parcel.writeString(managedNetworkName)
     }
 
     override fun describeContents() = 0
