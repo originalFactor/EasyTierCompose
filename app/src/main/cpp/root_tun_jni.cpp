@@ -18,9 +18,14 @@
 #include <unistd.h>
 #include <vector>
 
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, kTag, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, kTag, __VA_ARGS__)
+#ifdef NDEBUG
+#define LOGI(...) ((void)0)
+#define LOGD(...) ((void)0)
+#else
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, kTag, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, kTag, __VA_ARGS__)
+#endif
 
 namespace {
 constexpr char kTag[] = "EasyTierRootTun";
