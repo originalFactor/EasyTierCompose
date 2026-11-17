@@ -438,4 +438,14 @@
     <string name="vpn_notification_channel">EasyTier VPN</string>
     <string name="fgs_special_use_subtype">EasyTier virtual network transport</string>
     <string name="error_vpn_establish_failed">Failed to establish EasyTier VPN</string>
+    <string name="config_server_title">Configuration server</string>
+    <string name="config_server_enable">Use configuration server</string>
+    <string name="config_server_url">Server URL (includes token)</string>
+    <string name="config_server_secure_mode">Secure management mode</string>
+    <string name="config_server_hint">Enter the full --config-server URL, for example udp://server:22020/token. Assign one network to this device in the Web console. Network settings come from the server. Root TUN and VPN Service are supported. For Root TUN with another VPN, set socket_mark = 131072 and bind_device = false on the server.</string>
+    <string name="error_config_server_url">Enter a supported server URL with a host and a token path.</string>
+    <string name="error_config_server_multiple">Assign only one network to this Android client in the Web console.</string>
+    <string name="config_server_connected">Configuration server connected.</string>
+    <string name="config_server_waiting">Server connected. Waiting for a network or virtual IP.</string>
+    <string name="config_server_reconnecting">Connecting to configuration server…</string>
 </resources>

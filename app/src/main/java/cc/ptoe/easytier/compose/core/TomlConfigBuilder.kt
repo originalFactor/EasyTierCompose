@@ -23,6 +23,7 @@ object TomlConfigBuilder {
         profile: EasyTierProfile,
         globalSettings: GlobalSettings = GlobalSettings(),
     ): String {
+        require(profile.configServer == null) { "Managed profiles do not export a local TOML configuration" }
         // Global overrides are merged on top of the profile first; the builder
         // then serializes the effective configuration.
         val p = globalSettings.mergeInto(profile)

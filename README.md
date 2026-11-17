@@ -13,6 +13,7 @@
 
 - 📱 **纯 Compose UI** — Material 3 + 自适应布局（手机 NavigationBar / 平板 NavigationRail）
 - 🔌 **双 TUN 模式** — `VPN_SERVICE`（免 root，系统 VPN 授权）与 `ROOT_TUN`（root 进程 + 真实 `easytier0` 接口）
+- ☁️ **配置服务器** — 接入官方 `--config-server` 动态配置下发，支持 Root TUN、VPN Service 和 No TUN。[使用说明](docs/CONFIG_SERVER.md)
 - 🛡️ **JNI 门面架构** — 应用层不直接接触原生符号，统一通过 `core.EasyTierJni` 访问
 - 💾 **DataStore 持久化** — 多 profile 管理 + 选中态，含损坏数据自动恢复
 - 🎛️ **全配置项表单** — 覆盖 EasyTier Core 全部字段的分区编辑器（General / Network & Peers / Routing / IPv6 / Port Forwards / VPN Portal / Secure Mode / STUN & Whitelists / Flags — General / P2P / KCP / QUIC），生成结构化 TOML 并经原生 `parseConfig` 校验

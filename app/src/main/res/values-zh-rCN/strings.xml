@@ -414,4 +414,14 @@
     <string name="vpn_notification_title">EasyTier VPN 已启用</string>
     <string name="vpn_notification_text">EasyTier 正通过 Android VPN 转发流量</string>
     <string name="vpn_notification_channel">EasyTier VPN</string>
-    </resources>
+        <string name="config_server_title">配置服务器</string>
+    <string name="config_server_enable">使用配置服务器</string>
+    <string name="config_server_url">服务器地址（包含令牌）</string>
+    <string name="config_server_secure_mode">安全管理模式</string>
+    <string name="config_server_hint">填写完整的 --config-server 地址，例如 udp://server:22020/token。在 Web 控制台为此设备分配一个网络。网络设置由服务器下发，支持 Root TUN 和 VPN Service。Root TUN 与其他 VPN 共存时，请在服务器设置 socket_mark = 131072 和 bind_device = false。</string>
+    <string name="error_config_server_url">请输入支持的服务器地址，包含主机和令牌路径。</string>
+    <string name="error_config_server_multiple">请在 Web 控制台仅为此 Android 客户端分配一个网络。</string>
+    <string name="config_server_connected">配置服务器已连接。</string>
+    <string name="config_server_waiting">服务器已连接，等待下发网络或分配虚拟 IP。</string>
+    <string name="config_server_reconnecting">正在连接配置服务器…</string>
+</resources>

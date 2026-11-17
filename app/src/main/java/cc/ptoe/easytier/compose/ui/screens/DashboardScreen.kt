@@ -96,9 +96,20 @@ internal fun DashboardScreen(
             )
         }
 
+        state.runtime.configServerConnected?.let { connected ->
+            item {
+                Text(stringResource(when {
+                    !connected -> R.string.config_server_reconnecting
+                    state.runtime.state == RuntimeState.STARTING -> R.string.config_server_waiting
+                    else -> R.string.config_server_connected
+                }),
+                    style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+
         item {
             StatusDetailsGroup(
-                networkName = profile?.networkName,
+                networkName = state.runtime.managedNetworkName ?: profile?.takeIf { it.configServer == null }?.networkName,
                 virtualIpv4 = state.runtime.virtualIpv4,
                 hostname = state.runtime.hostname,
                 natType = state.runtime.natType,

@@ -54,7 +54,22 @@ class RootTunTransport(private val context: Context) : RuntimeTransport {
         val remote = bind() ?: return error(profile, context.getString(R.string.error_root_helper_disconnected))
         return try {
             registerCallback(remote)
-            remote.start(profile.id, toml, TomlConfigBuilder.rootTunSpec(profile, globalSettings))
+            val spec = TomlConfigBuilder.rootTunSpec(profile, globalSettings).let {
+                if (profile.configServer == null) it else it.copy(
+                    managedProfileJson = Json.encodeToString(EasyTierProfile.serializer(), profile),
+                    machineId = cc.ptoe.easytier.compose.core.ConfigServerIdentity.get(context),
+                )
+            }
+            remote.start(profile.id, toml, spec)
+            // A managed session can wait indefinitely for its first server assignment.
+            if (profile.configServer != null) return withTimeoutOrNull(15_000) {
+                mutableStatus.first {
+                    (it.profileId == profile.id && it.configServerConnected != null) || it.state == RuntimeState.ERROR
+                }
+            } ?: run {
+                stop()
+                error(profile, context.getString(R.string.error_root_helper_start_timed_out))
+            }
             // Wait for the daemon to reach RUNNING or ERROR. registerStatusCallback
             // immediately pushes the daemon's *current* state, which is STOPPED before
             // `remote.start(...)` takes effect — filtering for RUNNING/ERROR skips that
@@ -204,7 +219,7 @@ class RootTunTransport(private val context: Context) : RuntimeTransport {
         // fall back to the caller-supplied profile for the start flow where the daemon
         // hasn't reported yet.
         val effectiveProfileId = profileId ?: profile.id
-        return RuntimeStatus(state, effectiveProfileId, profile.tunMode, virtualIpv4, tunDevice, error, peers, hostname, natType, portal)
+        return RuntimeStatus(state, effectiveProfileId, profile.tunMode, virtualIpv4, tunDevice, error, peers, hostname, natType, portal, configServerConnected, managedNetworkName)
     }
 
     private fun error(profile: EasyTierProfile, message: String): RuntimeStatus =

@@ -42,6 +42,7 @@ class EasyTierRuntimeCoordinator private constructor(
     val status: StateFlow<RuntimeStatus> = mutableStatus.asStateFlow()
     private var activeProfile: EasyTierProfile? = null
     private var pollJob: Job? = null
+    private var managedSession: ConfigServerSession? = null
 
     /**
      * Swaps the VPN permission requester. BootCompletedReceiver binds a no-op requester
@@ -83,10 +84,13 @@ class EasyTierRuntimeCoordinator private constructor(
         val effectiveProfile = globalSettings.mergeInto(profile.withDeviceHostnameIfBlank(context))
         val errors = ProfileValidator().validate(effectiveProfile, globalSettings)
         if (errors.isNotEmpty()) return@withLock failure(effectiveProfile, errors.values.first().resolve(context))
-        val toml = TomlConfigBuilder.build(effectiveProfile, globalSettings)
+        val toml = if (effectiveProfile.configServer == null) TomlConfigBuilder.build(effectiveProfile, globalSettings) else ""
         stopLocked()
         activeProfile = effectiveProfile
         mutableStatus.value = RuntimeStatus(RuntimeState.STARTING, effectiveProfile.id, effectiveProfile.tunMode, null, null, null)
+        if (effectiveProfile.configServer != null && effectiveProfile.tunMode != TunMode.ROOT_TUN) {
+            return@withLock startManaged(effectiveProfile)
+        }
         return@withLock when (effectiveProfile.tunMode) {
             // No TUN mode: run the EasyTier core with no TUN device at all, in
             // the app process. VpnService and RootTun are both skipped.
@@ -201,6 +205,75 @@ class EasyTierRuntimeCoordinator private constructor(
         }
     }
 
+    private fun startManaged(owner: EasyTierProfile): RuntimeStatus = try {
+        val session = ConfigServerSession()
+        managedSession = session
+        session.start(requireNotNull(owner.configServer), owner.hostname, ConfigServerIdentity.get(context))
+        mutableStatus.value = RuntimeStatus(RuntimeState.STARTING, owner.id, owner.tunMode, null, null, null,
+            configServerConnected = false)
+        pollJob = scope.launch {
+            var attached: Triple<String, Long, String>? = null
+            while (true) {
+                val generation = session.generation()
+                try {
+                    val network = session.snapshot(owner)
+                    val info = network?.info
+                    val cidr = info?.virtualIpv4
+                    val key = if (network != null && !network.noTun && cidr != null)
+                        Triple(network.profile.id, network.revision, network.config + cidr) else null
+                    if (key != attached) {
+                        vpn.stop()
+                        attached = null
+                        if (key != null && network != null) {
+                            val prepared = vpn.start(network.profile, "", GlobalSettings())
+                            check(prepared.state != RuntimeState.ERROR) { prepared.error.orEmpty() }
+                            attached = key
+                        }
+                    }
+                    val transport = if (attached != null && network != null && cidr != null)
+                        vpn.establishWhenResolved(network.profile, cidr, info.routes + network.profile.manualRoutes)
+                        else null
+                    val ready = network != null && (network.noTun || transport?.state == RuntimeState.RUNNING)
+                    mutableStatus.value = RuntimeStatus(
+                        state = if (ready) RuntimeState.RUNNING else RuntimeState.STARTING,
+                        profileId = owner.id,
+                        tunMode = owner.tunMode,
+                        virtualIpv4 = cidr,
+                        tunDevice = transport?.tunDevice,
+                        error = null,
+                        peers = info?.peers.orEmpty(),
+                        hostname = info?.hostname,
+                        natType = info?.natType,
+                        configServerConnected = session.connected(),
+                        managedNetworkName = network?.profile?.networkName,
+                    )
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (error: Throwable) {
+                    vpn.stop()
+                    if (session.generation() != generation) {
+                        attached = null
+                        mutableStatus.value = RuntimeStatus(RuntimeState.STARTING, owner.id, owner.tunMode, null, null, null,
+                            configServerConnected = session.connected())
+                        delay(2_000)
+                        continue
+                    }
+                    runCatching { session.stop() }
+                    val message = if (error is MultipleManagedNetworksException) context.getString(R.string.error_config_server_multiple)
+                        else error.message ?: context.getString(R.string.error_easytier_start_failed)
+                    failure(owner, message)
+                    return@launch
+                }
+                delay(2_000)
+            }
+        }
+        mutableStatus.value
+    } catch (error: Throwable) {
+        runCatching { managedSession?.stop() }
+        managedSession = null
+        failure(owner, error.message ?: context.getString(R.string.error_easytier_start_failed))
+    }
+
     private suspend fun startVpn(profile: EasyTierProfile, toml: String, globalSettings: GlobalSettings): RuntimeStatus = try {
         EasyTierJni.retainNetworkInstance(null)
         require(EasyTierJni.runNetworkInstance(toml) == 0) { nativeError(R.string.error_easytier_start_failed) }
@@ -258,6 +331,11 @@ class EasyTierRuntimeCoordinator private constructor(
         pollJob?.cancelAndJoin()
         pollJob = null
         val profile = activeProfile
+        if (managedSession != null) {
+            vpn.stop()
+            runCatching { managedSession?.stop() }
+            managedSession = null
+        }
         when (profile?.tunMode) {
             // no_tun sessions started in-process (NO_TUN mode) release the
             // EasyTier instance here; ROOT_TUN sessions always live in the root
