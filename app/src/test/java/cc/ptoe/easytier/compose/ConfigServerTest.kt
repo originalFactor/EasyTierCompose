@@ -27,6 +27,7 @@ class ConfigServerTest {
         var raw = """{"map":{}}"""
         var toml: String? = null
         var changed: () -> Unit = {}
+        var duringCollect: () -> Unit = {}
         var duringConfig: () -> Unit = {}
         var stopped = false
         var identity: String? = null
@@ -37,7 +38,11 @@ class ConfigServerTest {
         }
         override fun stop(): Int { stopped = true; return 0 }
         override fun connected() = true
-        override fun collect() = raw
+        override fun collect(): String {
+            val collected = raw
+            duringCollect()
+            return collected
+        }
         override fun config(name: String): String? { duringConfig(); return toml }
     }
 
@@ -119,6 +124,41 @@ class ConfigServerTest {
         session.start(owner.configServer!!, null, "stable-id")
         fake.duringConfig = { fake.changed() }
         assertNull(session.snapshot(owner))
+    }
+
+    @Test fun `same-name restart during status read discards old address and recovers`() {
+        val fake = FakeNative().apply { raw = networkRaw(); toml = remoteToml }
+        val session = ConfigServerSession(fake)
+        session.start(owner.configServer!!, null, "stable-id")
+        fake.duringCollect = {
+            fake.raw = networkRaw().replace("168430082", "169088002")
+            fake.toml = "ipv4 = \"10.20.20.2/24\"\n$remoteToml"
+            fake.changed()
+        }
+
+        assertNull(session.snapshot(owner))
+
+        fake.duringCollect = {}
+        val network = session.snapshot(owner)!!
+        assertEquals("10.20.20.2/24", network.info.virtualIpv4)
+        assertEquals("10.20.20.2/24", network.profile.virtualIpv4)
+        assertEquals(1L, network.revision)
+        assertEquals(fake.toml, network.config)
+    }
+
+    @Test fun `assignment change during status read discards stale errors and multiple assignments`() {
+        val fake = FakeNative().apply { toml = remoteToml }
+        val session = ConfigServerSession(fake)
+        session.start(owner.configServer!!, null, "stable-id")
+        fake.duringCollect = { fake.changed() }
+
+        listOf(
+            """{"map":{"remote-network":{"error_msg":"Old instance stopped"}}}""",
+            """{"map":{"one":{},"two":{}}}""",
+        ).forEach { stale ->
+            fake.raw = stale
+            assertNull(session.snapshot(owner))
+        }
     }
 
     @Test fun `stopped remote instance clears its host interface snapshot`() {

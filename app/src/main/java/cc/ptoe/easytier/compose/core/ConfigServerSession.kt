@@ -27,15 +27,18 @@ internal class ConfigServerSession(private val native: ConfigServerNative = JniC
     fun generation(): Long = revision.get()
 
     fun snapshot(owner: EasyTierProfile): ManagedNetwork? {
+        // Cover status collection too: a same-name restart can otherwise pair
+        // the previous instance's address with the replacement's configuration.
+        val generation = revision.get()
         // Two entries suffice to detect unsupported multiple-network assignments.
         val raw = native.collect() ?: error("Could not read managed network status")
+        if (revision.get() != generation) return null
         val map = Json.parseToJsonElement(raw).jsonObject["map"]?.jsonObject ?: return null
         if (map.size > 1) throw MultipleManagedNetworksException()
         val name = map.keys.singleOrNull() ?: return null
         val info = raw.networkInfo(name) ?: error("Invalid managed network status")
         info.error?.takeIf(String::isNotBlank)?.let { error(it) }
         if (info.running != true) return null
-        val generation = revision.get()
         val config = try {
             native.config(name)
         } catch (error: Exception) {
