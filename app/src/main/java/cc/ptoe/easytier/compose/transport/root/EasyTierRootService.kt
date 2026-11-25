@@ -21,6 +21,12 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import cc.ptoe.easytier.compose.core.ConfigServerSession
+import cc.ptoe.easytier.compose.core.ManagedNetwork
+import cc.ptoe.easytier.compose.core.MultipleManagedNetworksException
+import cc.ptoe.easytier.compose.data.EasyTierProfile
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.util.concurrent.atomic.AtomicReference
@@ -33,6 +39,9 @@ class EasyTierRootService : RootService() {
     // seconds. RemoteCallbackList handles DeathRecipient cleanup automatically
     // when the app process dies.
     private val callbacks = RemoteCallbackList<IRootStatusCallback>()
+    private val lifecycleMutex = Mutex()
+    private var managedSession: ConfigServerSession? = null
+    private var managedTunKey: Triple<String, Long, String>? = null
     private var tunDescriptor: ParcelFileDescriptor? = null
     private var tunFd: Int = -1
     private var tunDevName: String = "easytier0"
@@ -54,11 +63,11 @@ class EasyTierRootService : RootService() {
     private val binder = object : IEasyTierRootService.Stub() {
         override fun start(profileId: String, toml: String, spec: RootTunSpec) {
             startJob?.cancel()
-            startJob = scope.launch { startRoot(profileId, toml, spec) }
+            startJob = scope.launch { lifecycleMutex.withLock { startRoot(profileId, toml, spec) } }
         }
 
         override fun stop() {
-            scope.launch { stopRoot() }
+            scope.launch { lifecycleMutex.withLock { stopRoot() } }
         }
 
         override fun getStatus(): RootRuntimeStatus = currentStatus.get()
@@ -92,7 +101,7 @@ class EasyTierRootService : RootService() {
     override fun onDestroy() {
         startJob?.cancel()
         startJob = null
-        cleanupResources()
+        kotlinx.coroutines.runBlocking { lifecycleMutex.withLock { cleanupResources() } }
         scope.cancel()
         super.onDestroy()
     }
@@ -102,6 +111,12 @@ class EasyTierRootService : RootService() {
         active = true
         updateStatus(RootRuntimeStatus(RuntimeState.STARTING.name, profileId, null, null, null, null))
         runCatching {
+            if (spec.managedProfileJson != null) {
+                cleanupResources()
+                val profile = Json.decodeFromString(EasyTierProfile.serializer(), spec.managedProfileJson)
+                startManaged(profile, requireNotNull(spec.machineId))
+                return
+            }
             require(EasyTierJni.parseConfig(toml) == 0) { nativeError(R.string.error_native_rejected) }
             cleanupResources()
             updateStatus(RootRuntimeStatus(RuntimeState.STARTING.name, profileId, null, null, null, null))
@@ -126,6 +141,79 @@ class EasyTierRootService : RootService() {
             Log.e(TAG, "startRoot failed", it)
             failRoot(it.message ?: nativeError(R.string.error_root_easytier_start_failed))
         }
+    }
+
+    private fun startManaged(owner: EasyTierProfile, machineId: String) {
+        val session = ConfigServerSession()
+        managedSession = session
+        session.start(requireNotNull(owner.configServer), owner.hostname, machineId)
+        updateStatus(RootRuntimeStatus(RuntimeState.STARTING.name, owner.id, null, null, null,
+            configServerConnected = false))
+        statusJob = scope.launch {
+            while (active) {
+                lifecycleMutex.withLock {
+                    val generation = session.generation()
+                    try {
+                        val network = session.snapshot(owner)
+                        syncManagedTun(network)
+                        val info = network?.info
+                        updateStatus(RootRuntimeStatus(
+                            state = if (network != null && (network.noTun || info?.virtualIpv4 != null)) RuntimeState.RUNNING.name else RuntimeState.STARTING.name,
+                            profileId = owner.id,
+                            virtualIpv4 = info?.virtualIpv4,
+                            tunDevice = if (managedTunKey != null) tunDevName else null,
+                            error = null,
+                            peersJson = info?.let { Json.encodeToString(ListSerializer(RuntimePeer.serializer()), it.peers) },
+                            hostname = info?.hostname,
+                            natType = info?.natType,
+                            configServerConnected = session.connected(),
+                            managedNetworkName = network?.profile?.networkName,
+                        ))
+                    } catch (error: Exception) {
+                        if (session.generation() != generation) {
+                            clearManagedTun()
+                            updateStatus(RootRuntimeStatus(RuntimeState.STARTING.name, owner.id, null, null, null,
+                                configServerConnected = session.connected()))
+                            return@withLock
+                        }
+                        failRoot(if (error is MultipleManagedNetworksException) getString(R.string.error_config_server_multiple)
+                            else error.message ?: getString(R.string.error_root_easytier_error))
+                    }
+                }
+                delay(2_000)
+            }
+        }
+    }
+
+    private fun syncManagedTun(network: ManagedNetwork?) {
+        val cidr = network?.info?.virtualIpv4
+        if (network == null || network.noTun || cidr == null) {
+            clearManagedTun()
+            return
+        }
+        val key = Triple(network.profile.id, network.revision, network.config + cidr)
+        val spec = cc.ptoe.easytier.compose.core.TomlConfigBuilder.rootTunSpec(network.profile).copy(ipv4Cidr = cidr)
+        if (managedTunKey != key) {
+            clearManagedTun()
+            createTun(spec)
+            require(EasyTierJni.setTunFd(network.profile.id, tunFd) == 0) { nativeError(R.string.error_root_tun_attach_failed) }
+            if (spec.magicDns) dnsManager.enableMagicDns(SystemDnsManager.MAGIC_DNS_FAKE_IP)
+            managedTunKey = key
+        }
+        routeManager?.syncTunRoutes(cidr, network.info.routes, spec)
+    }
+
+    private fun clearManagedTun() {
+        tunDescriptor?.close()
+        tunDescriptor = null
+        tunFd = -1
+        routeManager?.cleanupRoutesAndRules()
+        routeManager = null
+        // destroy() releases the C++ control fd as well as the kernel interface.
+        // Closing only the Java fd leaves create() reporting "already owned".
+        runCatching { RootTunNative.destroy() }
+        managedTunKey = null
+        dnsManager.restore()
     }
 
     /** Creates easytier0 and retains its fd for setTunFd. */
@@ -231,6 +319,9 @@ class EasyTierRootService : RootService() {
      * interface, and restores system DNS. Safe to call multiple times.
      */
     private fun cleanupResources() {
+        managedSession?.let { runCatching { it.stop() } }
+        managedSession = null
+        managedTunKey = null
         pollJob?.cancel()
         pollJob = null
         statusJob?.cancel()
@@ -240,7 +331,7 @@ class EasyTierRootService : RootService() {
         tunFd = -1
         runCatching { EasyTierJni.retainNetworkInstance(null) }
         routeManager?.cleanupRoutesAndRules()
-        execRoot("ip link del $tunDevName 2>/dev/null")
+        runCatching { RootTunNative.destroy() }
         dnsManager.restore()
     }
 

@@ -4,6 +4,11 @@ import com.easytier.jni.EasyTierJNI
 
 /** App-owned facade over the bundled reference EasyTier JNI library. */
 object EasyTierJni {
+    fun startConfigServerClient(url: String, hostname: String?, machineId: String, secureMode: Boolean, onEvent: (String) -> Unit): Int =
+        EasyTierJNI.startConfigServerClient(url, hostname, machineId, secureMode, com.easytier.jni.ConfigServerEventCallback(onEvent))
+    fun stopConfigServerClient(): Int = EasyTierJNI.stopConfigServerClient()
+    fun isConfigServerClientConnected(): Boolean = EasyTierJNI.isConfigServerClientConnected()
+
     fun setTunFd(instanceName: String, fd: Int): Int = EasyTierJNI.setTunFd(instanceName, fd)
     fun parseConfig(config: String): Int = EasyTierJNI.parseConfig(config)
     fun runNetworkInstance(config: String): Int = EasyTierJNI.runNetworkInstance(config)

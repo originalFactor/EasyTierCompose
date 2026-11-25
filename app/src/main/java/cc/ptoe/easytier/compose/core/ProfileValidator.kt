@@ -30,6 +30,12 @@ class ProfileValidator(private val nativeParser: NativeConfigParser = EasyTierNa
         // effective configuration that would actually be built.
         val effective = globalSettings.mergeInto(profile)
         if (effective.name.isBlank()) put("name", ValidationMessage.Resource(R.string.error_profile_name_required))
+        effective.configServer?.let { server ->
+            if (!isValidConfigServerUrl(server.url)) {
+                put("configServer", ValidationMessage.Resource(R.string.error_config_server_url))
+            }
+            return@buildMap
+        }
         if (effective.networkName.isBlank()) put("networkName", ValidationMessage.Resource(R.string.error_network_name_required))
         if (effective.tldDnsZone.isBlank()) put("tldDnsZone", ValidationMessage.Resource(R.string.error_tld_dns_zone_required))
         if (!effective.dhcp && !effective.virtualIpv4.isValidIpv4Cidr()) {

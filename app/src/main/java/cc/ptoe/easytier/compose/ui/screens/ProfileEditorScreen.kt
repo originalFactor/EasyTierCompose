@@ -77,6 +77,27 @@ internal fun ProfileEditorScreen(
         }
 
         item {
+            SectionCard(title = stringResource(R.string.config_server_title), icon = Icons.Default.Router) {
+                SwitchRow(stringResource(R.string.config_server_enable), profile.configServer != null) { enabled ->
+                    update { it.copy(configServer = if (enabled) cc.ptoe.easytier.compose.data.ConfigServerSettings() else null) }
+                }
+                profile.configServer?.let { server ->
+                    FormField(stringResource(R.string.config_server_url), server.url, error("configServer") ?: error("form"),
+                        transformation = PasswordVisualTransformation()) { value ->
+                        update { it.copy(configServer = server.copy(url = value.trim())) }
+                    }
+                    SwitchRow(stringResource(R.string.config_server_secure_mode), server.secureMode) { value ->
+                        update { it.copy(configServer = server.copy(secureMode = value)) }
+                    }
+                    Text(stringResource(R.string.config_server_hint), style = MaterialTheme.typography.bodySmall)
+                    FormField(stringResource(R.string.editor_profile_name), profile.name, error("name")) { value -> update { it.copy(name = value) } }
+                    FormField(stringResource(R.string.editor_hostname), profile.hostname.orEmpty(), null) { value -> update { it.copy(hostname = value.ifBlank { null }) } }
+                }
+            }
+        }
+        if (profile.configServer != null) return@LazyColumn
+
+        item {
             SectionCard(title = stringResource(R.string.editor_general), icon = Icons.Default.Info) {
                 FormField(stringResource(R.string.editor_profile_name), profile.name, error("name")) { v -> update { it.copy(name = v) } }
                 FormField(stringResource(R.string.editor_hostname), profile.hostname.orEmpty(), null) { v -> update { it.copy(hostname = v.ifBlank { null }) } }

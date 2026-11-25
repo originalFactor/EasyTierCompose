@@ -189,6 +189,12 @@ data class ManagedCredential(
 )
 
 @Serializable
+data class ConfigServerSettings(
+    val url: String = "",
+    val secureMode: Boolean = false,
+)
+
+@Serializable
 data class EasyTierProfile(
     val id: String,
     val name: String,
@@ -276,6 +282,7 @@ data class EasyTierProfile(
     // credential key file (credential_file). Network-wide, profile only.
     val managedCredentials: List<ManagedCredential> = emptyList(),
     val credentialFile: String? = null,
+    val configServer: ConfigServerSettings? = null,
 )
 
 /**
@@ -487,6 +494,8 @@ data class RuntimeStatus(
     val hostname: String? = null,
     val natType: String? = null,
     val wireguardPortal: WireGuardPortalInfo? = null,
+    val configServerConnected: Boolean? = null,
+    val managedNetworkName: String? = null,
 ) {
     companion object {
         val Stopped = RuntimeStatus(RuntimeState.STOPPED, null, null, null, null, null)

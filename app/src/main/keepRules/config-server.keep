@@ -1,0 +1,7 @@
+# Rust calls onEvent by name on a concrete callback object.
+-keep,allowoptimization interface com.easytier.jni.ConfigServerEventCallback {
+    public void onEvent(java.lang.String);
+}
+-keepclassmembers,allowoptimization class * implements com.easytier.jni.ConfigServerEventCallback {
+    public void onEvent(java.lang.String);
+}
