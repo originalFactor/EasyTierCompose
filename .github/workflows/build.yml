@@ -37,12 +37,12 @@ jobs:
 
       - name: Accept Android SDK licenses and install NDK
         # The runner only pre-accepts licenses for pre-installed SDK packages.
-        # The project pins ndkVersion 30.0.16138531 (and needs cmake 4.1.2 /
+        # The project pins ndkVersion 30.0.16248370 (and needs cmake 4.1.2 /
         # platform 37), so accept all licenses and pre-install the pinned NDK
         # before Gradle runs, otherwise AGP fails with LicenceNotAcceptedException.
         run: |
           yes | sudo "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-          yes | sudo "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;30.0.16138531" > /dev/null
+          yes | sudo "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;30.0.16248370" > /dev/null
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -50,10 +50,10 @@ jobs:
       - name: Read version info
         id: version
         run: |
-          echo "version=$(cat version.txt)" >> $GITHUB_OUTPUT
-          echo "commit_count=$(git rev-list --count HEAD)" >> $GITHUB_OUTPUT
-          echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          echo "is_tag=${{ startsWith(github.ref, 'refs/tags/') }}" >> $GITHUB_OUTPUT
+          printf 'version=%s\n' "$(tr -d '\r\n' < version.txt)" >> "$GITHUB_OUTPUT"
+          printf 'commit_count=%s\n' "$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
+          printf 'short_sha=%s\n' "$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          printf 'is_tag=%s\n' "${{ startsWith(github.ref, 'refs/tags/') }}" >> "$GITHUB_OUTPUT"
 
       - name: Decode signing keystore
         env:
